@@ -7,16 +7,17 @@ const PORT = 5000;
 const app = express();
 
 app.use(morgan('dev'));
+app.use(express.static('static', { extensions: ['html'] }));
 
 app.get('/api/hello', async (req, res) => {
     res.json({
         message: "Hello World!"
     })
-})
+});
 
 app.get('/api/error', async (req, res) => {
     throw new Error('Error endpoint');
-})
+});
 
 app.use(errorHandler);
 
