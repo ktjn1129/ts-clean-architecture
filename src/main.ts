@@ -3,6 +3,21 @@ import "express-async-errors";
 import morgan from "morgan";
 import mysql from "mysql2/promise";
 
+const EMPTY = 0;
+const DARK = 1;
+const LIGHT = 2;
+
+const INITIAL_BOARD = [
+  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
+  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
+  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
+  [EMPTY, EMPTY, EMPTY, DARK, LIGHT, EMPTY, EMPTY, EMPTY],
+  [EMPTY, EMPTY, EMPTY, LIGHT, DARK, EMPTY, EMPTY, EMPTY],
+  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
+  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
+  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
+];
+
 const PORT = 3000;
 
 const app = express();
@@ -21,10 +36,9 @@ app.get("/api/error", async (req, res) => {
 });
 
 app.post("/api/games", async (req, res) => {
-  const startedAt = new Date();
+  const now = new Date();
 
-  console.log(`startedAt: ${startedAt}`);
-  const connect = await mysql.createConnection({
+  const connection = await mysql.createConnection({
     host: "localhost",
     database: "reversi",
     user: "reversi",
@@ -32,13 +46,47 @@ app.post("/api/games", async (req, res) => {
   });
 
   try {
-    await connect.beginTransaction();
-    await connect.execute("insert into games (started_at) values (?)", [
-      startedAt,
-    ]);
-    await connect.commit();
+    await connection.beginTransaction();
+
+    const gameInsertResult = await connection.execute<mysql.ResultSetHeader>(
+      "insert into games (started_at) values (?)",
+      [now]
+    );
+    const gameId = gameInsertResult[0].insertId;
+
+    const turnInsertResult = await connection.execute<mysql.ResultSetHeader>(
+      "insert into turns (game_id, turn_count, next_disc, end_at) values (?, ?, ?, ?)",
+      [gameId, 0, DARK, now]
+    );
+    const turnId = turnInsertResult[0].insertId;
+
+    //マス目の数を計算
+    const squareCount = INITIAL_BOARD.map((line) => line.length).reduce(
+      (v1, v2) => v1 + v2,
+      0
+    );
+
+    const squareInsertSql =
+      "insert into squares (turn_id, x, y, disc) values" +
+      Array.from(Array(squareCount))
+        .map(() => "(?, ?, ?, ?)")
+        .join(", ");
+
+    const squaresInsertValues: any[] = [];
+    INITIAL_BOARD.forEach((line, y) => {
+      line.forEach((disc, x) => {
+        squaresInsertValues.push(turnId);
+        squaresInsertValues.push(x);
+        squaresInsertValues.push(y);
+        squaresInsertValues.push(disc);
+      });
+    });
+
+    await connection.execute(squareInsertSql, squaresInsertValues);
+
+    await connection.commit();
   } finally {
-    await connect.end();
+    await connection.end();
   }
 
   res.status(201).end();
