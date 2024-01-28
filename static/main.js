@@ -2,37 +2,30 @@ const EMPTY = 0;
 const DARK = 1;
 const LIGHT = 2;
 
-const INITIAL_BOARD = [
-  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-  [EMPTY, EMPTY, EMPTY, DARK, LIGHT, EMPTY, EMPTY, EMPTY],
-  [EMPTY, EMPTY, EMPTY, LIGHT, DARK, EMPTY, EMPTY, EMPTY],
-  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-  [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
-];
-
 const boardElement = document.getElementById("board");
 
 async function showBoard() {
-  console.log(boardElement);
+  const turnCount = 0;
+  const response = await fetch(`/api/games/latest/turns/${turnCount}`);
+  const responseBody = await response.json();
+  const board = responseBody.board;
+  console.log(board);
 
   while (boardElement.firstChild) {
     boardElement.removeChild(boardElement.firstChild);
   }
 
-  INITIAL_BOARD.forEach((line) => {
+  board.forEach((line) => {
     line.forEach((square) => {
       // <div class="square"></div>
       const squareElement = document.createElement("div");
       squareElement.className = "square";
 
-      if (square === EMPTY) {
+      if (square !== EMPTY) {
         // <div class="stone"></div>
         const stoneElement = document.createElement("div");
         const color = square === DARK ? "dark" : "light";
-        stoneElement.classNAmr = `stone ${color}`;
+        stoneElement.className = `stone ${color}`;
 
         squareElement.appendChild(stoneElement);
       }
