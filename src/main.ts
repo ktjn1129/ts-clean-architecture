@@ -18,7 +18,7 @@ const INITIAL_BOARD = [
   [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY],
 ];
 
-const PORT = 3000;
+const PORT = 5000;
 
 const app = express();
 
@@ -37,13 +37,7 @@ app.get("/api/error", async (req, res) => {
 
 app.post("/api/games", async (req, res) => {
   const now = new Date();
-
-  const connection = await mysql.createConnection({
-    host: "localhost",
-    database: "reversi",
-    user: "reversi",
-    password: "password",
-  });
+  const connection = await connectMySQL();
 
   try {
     await connection.beginTransaction();
@@ -65,7 +59,6 @@ app.post("/api/games", async (req, res) => {
       (v1, v2) => v1 + v2,
       0
     );
-
     const squareInsertSql =
       "insert into squares (turn_id, x, y, disc) values" +
       Array.from(Array(squareCount))
@@ -81,9 +74,7 @@ app.post("/api/games", async (req, res) => {
         squaresInsertValues.push(disc);
       });
     });
-
     await connection.execute(squareInsertSql, squaresInsertValues);
-
     await connection.commit();
   } finally {
     await connection.end();
@@ -91,6 +82,46 @@ app.post("/api/games", async (req, res) => {
 
   res.status(201).end();
 });
+
+app.get('/api/games/latest/turns/:turnCount', async(req, res) => {
+  const turnCount = parseInt(req.params.turnCount);
+  const connection = await connectMySQL();
+
+  try {
+    const gameSelectResult = await connection.execute<mysql.RowDataPacket[]>(
+      "select id, started_at from games order by id desc limit 1"
+    )
+    const game = gameSelectResult[0][0];
+
+    const turnSelectResult = await connection.execute<mysql.RowDataPacket[]>(
+      "select id, game_id, turn_count, next_disc, end_at from turns where game_id = ? and turn_count = ?",
+      [game['id'], turnCount]
+    )
+    const turn = turnSelectResult[0][0];
+
+    const squaresSelectResult = await connection.execute<mysql.RowDataPacket[]>(
+      "select id, turn_id, x, y, disc from squares where turn_id = ?",
+      [turn['id']]
+    )
+    const squares = squaresSelectResult[0];
+
+    const board = Array.from(Array(8)).map(() => Array.from(Array(8)))
+
+    squares.forEach((s) => {
+      board[s.y][s.x] = s.disc;
+    })
+
+    const responseBody = {
+      turnCount,
+      board,
+      nextDisc: turn['next_disc'],
+      winnerDisc: null
+    }
+    res.json(responseBody)
+  }finally {
+    await connection.end();
+  }
+})
 
 app.use(errorHandler);
 
@@ -107,5 +138,14 @@ function errorHandler(
   console.error("Unexpected error occurred", err);
   res.status(500).send({
     message: "Unexpected error occurred",
+  });
+}
+
+async function connectMySQL() {
+  return await mysql.createConnection({
+    host: "localhost",
+    database: "reversi",
+    user: "reversi",
+    password: "password",
   });
 }
