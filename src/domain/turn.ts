@@ -48,6 +48,10 @@ export class Turn {
     return this._nextDisc;
   }
 
+  get move() {
+    return this._move;
+  }
+
   get board() {
     return this._board;
   }
