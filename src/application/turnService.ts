@@ -1,12 +1,14 @@
-import { connectMySQL } from "../dataaccess/connection";
-import { GameGateway } from "../dataaccess/gameGateway";
-import { toDisc } from "../domain/disc";
-import { Point } from "../domain/point";
-import { TurnRepository } from "../domain/turnRepository";
+import { connectMySQL } from "../infrastructure/connection";
+import { GameGateway } from "../infrastructure/gameGateway";
+import { toDisc } from "../domain//turn/disc";
+import { GameRepository } from "../domain/game/gameRepository";
+import { Point } from "../domain/turn/point";
+import { TurnRepository } from "../domain/turn/turnRepository";
 
 const gameGateway = new GameGateway();
 
 const turnRepository = new TurnRepository();
+const gameRepository = new GameRepository();
 
 class FindLatestGameTurnByTurnCountOutput {
   constructor(
@@ -40,15 +42,17 @@ export class TurnService {
     const connection = await connectMySQL();
 
     try {
-      const gameRecord = await gameGateway.findLatest(connection);
+      const game = await gameRepository.findLatest(connection);
 
-      if (!gameRecord) {
+      if (!game) {
         throw new Error("Latest game not found");
       }
-
+      if (!game.id) {
+        throw new Error("game.id not exist");
+      }
       const turn = await turnRepository.findForGameIdAndTurnCount(
         connection,
-        gameRecord.id,
+        game.id,
         turnCount
       );
 
