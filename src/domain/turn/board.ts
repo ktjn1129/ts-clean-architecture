@@ -1,9 +1,13 @@
-import { Disc } from "./disc";
+import { Disc, isOppositeDisc } from "./disc";
 import { Move } from "./move";
 import { Point } from "./point";
 
 export class Board {
-  constructor(private _discs: Disc[][]) {}
+  private _walledDiscs: Disc[][];
+
+  constructor(private _discs: Disc[][]) {
+    this._walledDiscs = this.wallDiscs();
+  }
 
   place(move: Move): Board {
     //空のマス目ではない場合、置くことはできない
@@ -12,7 +16,7 @@ export class Board {
     }
 
     //ひっくり返せる点をリストアップ
-    const flipPoints = this.listFlipPoints();
+    const flipPoints = this.listFlipPoints(move);
 
     //ひっくり返せる点がない場合、置くことはできない
     if (flipPoints.length === 0) {
@@ -29,13 +33,75 @@ export class Board {
     //石を置く
     newDiscs[move.point.y][move.point.x] = move.disc;
 
-    //TODO ひっくり返す
+    //ひっくり返す
+    flipPoints.forEach((p) => {
+      newDiscs[p.x][p.y] = move.disc;
+    });
 
     return new Board(newDiscs);
   }
 
-  private listFlipPoints(): Point[] {
-    return [new Point(0, 0)];
+  private listFlipPoints(move: Move): Point[] {
+    const flipPoints: Point[] = [];
+
+    const walledX = move.point.x + 1;
+    const walledY = move.point.y + 1;
+
+    const checkFlipPoints = (xMove: number, yMove: number) => {
+      const flipOptions: Point[] = [];
+
+      let cursorX = walledX + xMove;
+      let cursorY = walledY + yMove;
+
+      //手と逆の石がある間、一つずつ見ていく
+      while (isOppositeDisc(move.disc, this._walledDiscs[cursorY][cursorX])) {
+        //番兵を考慮して-1する
+        flipOptions.push(new Point(cursorX - 1, cursorY - 1));
+        cursorX += xMove;
+        cursorY += yMove;
+        //次の手が同じ色の石なら、ひっくり返す石が確定
+        if (move.disc === this._walledDiscs[cursorY][cursorX]) {
+          flipPoints.push(...flipOptions);
+          break;
+        }
+      }
+    };
+
+    //上
+    checkFlipPoints(0, -1);
+    //左上
+    checkFlipPoints(-1, -1);
+    //左
+    checkFlipPoints(-1, 0);
+    //左下
+    checkFlipPoints(-1, 1);
+    //下
+    checkFlipPoints(0, 1);
+    //右下
+    checkFlipPoints(1, 1);
+    //右
+    checkFlipPoints(1, 0);
+    //右上
+    checkFlipPoints(1, -1);
+
+    return flipPoints;
+  }
+
+  private wallDiscs(): Disc[][] {
+    const walled: Disc[][] = [];
+
+    const topAndBottomWall = Array(this._discs[0].length + 2).fill(Disc.Wall);
+
+    walled.push(topAndBottomWall);
+
+    this._discs.forEach((line) => {
+      const walledLine = [Disc.Wall, ...line, Disc.Wall];
+      walled.push(walledLine);
+    });
+
+    walled.push(topAndBottomWall);
+
+    return walled;
   }
 
   get discs() {
