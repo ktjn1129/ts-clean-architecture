@@ -1,12 +1,9 @@
-import { connectMySQL } from "../infrastructure/connection";
-import { GameGateway } from "../infrastructure/gameGateway";
-import { toDisc } from "../domain/model/turn/disc";
 import { GameRepository } from "../domain/model/game/gameRepository";
+import { toDisc } from "../domain/model/turn/disc";
 import { Point } from "../domain/model/turn/point";
 import { TurnRepository } from "../domain/model/turn/turnRepository";
+import { connectMySQL } from "../infrastructure/connection";
 import { ApplicationError } from "./error/applicationError";
-
-const gameGateway = new GameGateway();
 
 const turnRepository = new TurnRepository();
 const gameRepository = new GameRepository();
@@ -65,6 +62,7 @@ export class TurnService {
         turnCount,
         turn.board.discs,
         turn.nextDisc,
+        //TODO 決着がついている場合、game_results テーブルから取得する
         undefined
       );
     } finally {
@@ -76,21 +74,25 @@ export class TurnService {
     const connection = await connectMySQL();
 
     try {
+      await connection.beginTransaction();
       //一つ前のターンを取得
-      const gameRecord = await gameGateway.findLatest(connection);
+      const game = await gameRepository.findLatest(connection);
 
-      if (!gameRecord) {
+      if (!game) {
         throw new ApplicationError(
           "LatestGameNotFound",
           "Latest game not found"
         );
+      }
+      if (!game.id) {
+        throw new Error("game.id not exist");
       }
 
       const previousTurnCount = turnCount - 1;
 
       const previousTurn = await turnRepository.findForGameIdAndTurnCount(
         connection,
-        gameRecord.id,
+        game.id,
         previousTurnCount
       );
 
