@@ -92,7 +92,7 @@ export class Board {
   }
 
   existValidMove(disc: Disc): boolean {
-    for (let y = 0; (y = this._discs.length); y++) {
+    for (let y = 0; y < this._discs.length; y++) {
       const line = this._discs[y];
 
       for (let x = 0; x < line.length; x++) {
